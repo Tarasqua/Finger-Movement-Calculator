@@ -34,6 +34,8 @@ EQUATION = ResultDisplay.START_VALUE
 DELAY_COUNTER = 0
 CALCULATION = True
 
+BEGINNING_OF_EQUALITY = ''
+
 # Loop
 while True:
     # Get image from webcam
@@ -113,6 +115,8 @@ while True:
                     ]
                     if current_value == '=':
                         try:
+                            EQUATION = BEGINNING_OF_EQUALITY + EQUATION
+                            BEGINNING_OF_EQUALITY = ''
                             EQUATION = str(round(eval(EQUATION.replace('x', '*')), 3))
                         except (SyntaxError, NameError, ZeroDivisionError):
                             EQUATION = Display.EXCEPTION_MESSAGE
@@ -123,6 +127,10 @@ while True:
                             CALCULATION = False
                         # Forming the result string
                         EQUATION += current_value
+                        # in order not to go beyond the boundaries of the result field
+                        if len(EQUATION) > Display.MAX_NUM_OF_CHARACTERS:
+                            BEGINNING_OF_EQUALITY += EQUATION[0]
+                            EQUATION = EQUATION[1:]
                     DELAY_COUNTER = 1
 
     # Avoid duplicates (delay)

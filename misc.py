@@ -5,13 +5,15 @@ class Display:
     DISPLAY_DIMENSIONS = (1280, 720)
 
     MAIN_BUTTON_SIZE = 75
-    MAIN_X_OFFSET = 700
-    MAIN_Y_OFFSET = 150
+    MAIN_X_OFFSET = 700  # calculator position
+    MAIN_Y_OFFSET = 150  # offsets
     MAIN_BORDER_COLOR = (50, 50, 50)
     MAIN_THICKNESS = 3
     MAIN_FONT_SCALE = 2
     MAIN_CLICKED_FONT_SCALE = 2.5
     MAIN_FONT = cv2.FONT_HERSHEY_PLAIN
+
+    MAX_NUM_OF_CHARACTERS = 7
 
     EXCEPTION_MESSAGE = 'Error'
     WIN_NAME = 'Finger Movement Calculator'

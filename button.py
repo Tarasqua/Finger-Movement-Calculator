@@ -51,7 +51,7 @@ class Button:
         :param thickness: button text thickness after click
         :param text_x_margin: x axis margin
         :param text_y_margin: y axis margin
-        :return: void
+        :return: True if clicked, otherwise False
         """
         if self.position[0] < x < self.position[0] + self.width and \
                 self.position[1] < y < self.position[1] + self.height:
