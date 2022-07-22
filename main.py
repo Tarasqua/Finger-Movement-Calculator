@@ -4,35 +4,35 @@ import keyboard
 from cvzone.HandTrackingModule import HandDetector
 
 from button import Button
-
-BUTTON_SIZE = 75
-X_OFFSET = 700
-Y_OFFSET = 150
+from misc import Display, ClearButton, CalculationButtons, ResultDisplay, Fingers, Delay
 
 # Webcam
 cap = cv2.VideoCapture(0)
-cap.set(3, 1280)  # width
-cap.set(4, 720)  # height
+cap.set(3, Display.DISPLAY_DIMENSIONS[0])  # width
+cap.set(4, Display.DISPLAY_DIMENSIONS[1])  # height
 detector = HandDetector(detectionCon=0.5, maxHands=1)
 
-# Creating button
-button_values_list = [
-    ['7', '8', '9', 'x'],
-    ['4', '5', '6', '-'],
-    ['1', '2', '3', '+'],
-    ['0', '/', '.', '='],
-]
-button_list = []
-for x_distance in range(4):  # Since we have 4 x 4 grid
-    for y_distance in range(4):
-        x_position = x_distance * BUTTON_SIZE + X_OFFSET
-        y_position = y_distance * BUTTON_SIZE + Y_OFFSET
-        button_list.append(Button(position=(x_position, y_position), width=BUTTON_SIZE, height=BUTTON_SIZE,
-                                  value=button_values_list[y_distance][x_distance]))
+# Creating buttons
+CALCULATION_BUTTONS_LIST = []
+for x_distance in range(len(CalculationButtons.BUTTON_VALUES_LIST)):  # Since we have 4 x 4 grid
+    for y_distance in range(len(CalculationButtons.BUTTON_VALUES_LIST)):
+        x_position = x_distance * Display.MAIN_BUTTON_SIZE + Display.MAIN_X_OFFSET
+        y_position = y_distance * Display.MAIN_BUTTON_SIZE + Display.MAIN_Y_OFFSET
+        CALCULATION_BUTTONS_LIST.append(
+            Button(position=(x_position, y_position),
+                   width=Display.MAIN_BUTTON_SIZE,
+                   height=Display.MAIN_BUTTON_SIZE,
+                   value=CalculationButtons.BUTTON_VALUES_LIST[y_distance][x_distance]
+                   )
+        )
+clear_button = Button(position=(Display.MAIN_X_OFFSET + Display.MAIN_BUTTON_SIZE *
+                                (len(CalculationButtons.BUTTON_VALUES_LIST) - 1), Display.MAIN_BUTTON_SIZE),
+                      width=Display.MAIN_BUTTON_SIZE, height=Display.MAIN_BUTTON_SIZE, value=ClearButton.START_VALUE)
 
 # Variables
-EQUATION = ''
+EQUATION = ResultDisplay.START_VALUE
 DELAY_COUNTER = 0
+CALCULATION = True
 
 # Loop
 while True:
@@ -43,51 +43,106 @@ while True:
     # Hand detection
     hands, img = detector.findHands(img=img, flipType=False)
 
-    # Draw result
-    cv2.rectangle(img=img, pt1=(X_OFFSET, BUTTON_SIZE), pt2=(X_OFFSET + BUTTON_SIZE * 4, Y_OFFSET + BUTTON_SIZE),
-                  color=(0, 149, 255), thickness=cv2.FILLED)
-    cv2.rectangle(img=img, pt1=(X_OFFSET, BUTTON_SIZE), pt2=(X_OFFSET + BUTTON_SIZE * 4, Y_OFFSET + BUTTON_SIZE),
-                  color=(50, 50, 50), thickness=3)
+    # Draw result box
+    cv2.rectangle(img=img,
+                  pt1=(Display.MAIN_X_OFFSET, Display.MAIN_BUTTON_SIZE),
+                  pt2=(
+                    Display.MAIN_X_OFFSET + Display.MAIN_BUTTON_SIZE * (len(CalculationButtons.BUTTON_VALUES_LIST) - 1),
+                    Display.MAIN_Y_OFFSET + Display.MAIN_BUTTON_SIZE
+                  ),
+                  color=ResultDisplay.BUTTON_COLOR,
+                  thickness=cv2.FILLED
+                  )
+    cv2.rectangle(img=img,
+                  pt1=(Display.MAIN_X_OFFSET,
+                       Display.MAIN_BUTTON_SIZE),
+                  pt2=(
+                    Display.MAIN_X_OFFSET + Display.MAIN_BUTTON_SIZE * (len(CalculationButtons.BUTTON_VALUES_LIST) - 1),
+                    Display.MAIN_Y_OFFSET + Display.MAIN_BUTTON_SIZE
+                  ),
+                  color=ResultDisplay.MAIN_BORDER_COLOR,
+                  thickness=Display.MAIN_THICKNESS
+                  )
 
     # Draw all buttons
-    for button in button_list:
-        button.draw_button(img=img)
+    for button in CALCULATION_BUTTONS_LIST:
+        button.draw_button(img=img,
+                           rectangle_color=CalculationButtons.BUTTON_COLOR,
+                           text_color=CalculationButtons.TEXT_COLOR,
+                           font_scale=CalculationButtons.MAIN_FONT_SCALE,
+                           thickness=CalculationButtons.THICKNESS
+                           )
+    clear_button.draw_button(img=img,
+                             rectangle_color=ClearButton.BUTTON_COLOR,
+                             text_x_margin=-ClearButton.X_MARGIN,
+                             text_color=ClearButton.TEXT_COLOR,
+                             font_scale=ClearButton.MAIN_FONT_SCALE,
+                             thickness=ClearButton.THICKNESS
+                             )
 
     # Check for hand
     if hands:
         lm_list = hands[0]['lmList']  # landmark list
-        length, _, img = detector.findDistance(p1=lm_list[8][0:2], p2=lm_list[12][0:2],
-                                               img=img)  # 8 - index finger tip, 12 - middle finger tip
-        x, y = lm_list[8][0:2]
-        if length < 50:
-            for i, button in enumerate(button_list):
-                if button.check_click(x=x, y=y, img=img) and DELAY_COUNTER == 0:
-                    current_value = button_values_list[int(i % 4)][int(i / 4)]
+        length, _, img = detector.findDistance(p1=lm_list[Fingers.FINGER_TIP_1][0:2],
+                                               p2=lm_list[Fingers.FINGER_TIP_2][0:2],
+                                               img=img
+                                               )
+        x, y = lm_list[Fingers.FINGER_TIP_1][0:2]
+        if length < Fingers.CRITICAL_FINGERS_DISTANCE:
+            # Clear button
+            if clear_button.check_click(x=x, y=y, img=img,
+                                        rectangle_color=ClearButton.CHECK_BUTTON_COLOR,
+                                        text_x_margin=-ClearButton.X_MARGIN,
+                                        text_color=ClearButton.CHECK_TEXT_COLOR,
+                                        thickness=ClearButton.CHECK_THICKNESS) \
+                    and DELAY_COUNTER == 0:
+                EQUATION = ResultDisplay.START_VALUE
+                CALCULATION = True
+            # Other buttons
+            for index, button in enumerate(CALCULATION_BUTTONS_LIST):
+                if button.check_click(x=x, y=y, img=img,
+                                      rectangle_color=CalculationButtons.CHECK_BUTTON_COLOR,
+                                      text_color=CalculationButtons.CHECK_TEXT_COLOR,
+                                      thickness=CalculationButtons.CHECK_THICKNESS) \
+                        and DELAY_COUNTER == 0:
+                    # getting current value
+                    current_value = CalculationButtons.BUTTON_VALUES_LIST[
+                        int(index % len(CalculationButtons.BUTTON_VALUES_LIST))
+                    ][
+                        int(index / len(CalculationButtons.BUTTON_VALUES_LIST))
+                    ]
                     if current_value == '=':
-                        EQUATION = str(round(eval(EQUATION.replace('x', '*')), 3))
+                        try:
+                            EQUATION = str(round(eval(EQUATION.replace('x', '*')), 3))
+                        except (SyntaxError, NameError, ZeroDivisionError):
+                            EQUATION = Display.EXCEPTION_MESSAGE
+                            CALCULATION = True
                     else:
+                        if CALCULATION:  # To always have zero in the input field
+                            EQUATION = ''
+                            CALCULATION = False
+                        # Forming the result string
                         EQUATION += current_value
                     DELAY_COUNTER = 1
 
-    # Avoid duplicates
+    # Avoid duplicates (delay)
     if DELAY_COUNTER != 0:
         DELAY_COUNTER += 1
-        if DELAY_COUNTER > 10:
+        if DELAY_COUNTER > Delay.MAX_DELAY:
             DELAY_COUNTER = 0
 
-    # Processing
-
     # Display the Equation/Result
-    text_size = cv2.getTextSize(text=EQUATION, fontFace=cv2.FONT_HERSHEY_DUPLEX, fontScale=1.2, thickness=2)
-    text_y = int(Y_OFFSET - BUTTON_SIZE / 2 + text_size[1])
-    cv2.putText(img=img, text=EQUATION, org=(X_OFFSET + 10, text_y), fontFace=cv2.FONT_HERSHEY_DUPLEX,
-                fontScale=1.2, color=(50, 50, 50), thickness=2)
+    text_size = cv2.getTextSize(text=EQUATION, fontFace=ResultDisplay.MAIN_FONT,
+                                fontScale=ResultDisplay.FONT_SCALE, thickness=ResultDisplay.THICKNESS
+                                )
+    text_y = int(Display.MAIN_Y_OFFSET - Display.MAIN_BUTTON_SIZE / 2 + text_size[1])  # Centering position
+    cv2.putText(img=img, text=EQUATION, org=(Display.MAIN_X_OFFSET + ResultDisplay.X_MARGIN, text_y),
+                fontFace=ResultDisplay.MAIN_FONT, fontScale=ResultDisplay.FONT_SCALE,
+                color=ResultDisplay.TEXT_COLOR, thickness=ResultDisplay.THICKNESS)
 
     # Display image
-    cv2.imshow(winname='Image', mat=img)
-    key = cv2.waitKey(1)
-    if key == ord('c'):  # Clear display
-        EQUATION = ''
+    cv2.imshow(winname=Display.WIN_NAME, mat=img)
+    cv2.waitKey(1)
 
     # Exit
     if keyboard.is_pressed('esc'):
